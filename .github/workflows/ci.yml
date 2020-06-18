@@ -11,7 +11,7 @@ on:
 env:
   GOPROXY: "https://proxy.golang.org"
   TAGS: "-tags=ci"
-  COVERAGE: "-coverpkg=github.com/go-mmap/mmap"
+  COVERAGE: "-coverprofile=profile.out -covermode=atomic -coverpkg=github.com/go-mmap/mmap"
 
 jobs:
 
