@@ -23,6 +23,7 @@ import (
 type Reader struct {
 	data []byte
 	c    int
+	fi   os.FileInfo
 }
 
 // Close closes the reader.
@@ -45,6 +46,10 @@ func (r *Reader) Len() int {
 func (r *Reader) At(i int) byte {
 	return r.data[i]
 }
+
+// Stat returns the FileInfo structure describing file.
+// If there is an error, it will be of type *os.PathError.
+func (r *Reader) Stat() (os.FileInfo, error) { return r.fi, nil }
 
 func (r *Reader) Read(p []byte) (int, error) {
 	if r.c >= len(r.data) {
@@ -123,7 +128,7 @@ func Open(filename string) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &Reader{data: data}
+	r := &Reader{data: data, fi: fi}
 	runtime.SetFinalizer(r, (*Reader).Close)
 	return r, nil
 }
@@ -140,6 +145,7 @@ var (
 type File struct {
 	data []byte
 	c    int
+	fi   os.FileInfo
 }
 
 // Close closes the memory-mapped file.
@@ -162,6 +168,10 @@ func (f *File) Len() int {
 func (f *File) At(i int) byte {
 	return f.data[i]
 }
+
+// Stat returns the FileInfo structure describing file.
+// If there is an error, it will be of type *os.PathError.
+func (f *File) Stat() (os.FileInfo, error) { return f.fi, nil }
 
 // Read implements the io.Reader interface.
 func (f *File) Read(p []byte) (int, error) {
