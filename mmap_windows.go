@@ -2,103 +2,24 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package mmap provides a way to memory-map a file.
 package mmap
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
-	"syscall"
 	"unsafe"
+
+	syscall "golang.org/x/sys/windows"
 )
 
-// Reader reads a memory-mapped file.
-type Reader struct {
-	data []byte
-	c    int
-}
-
-// Close closes the reader.
-func (r *Reader) Close() error {
-	if r.data == nil {
-		return nil
-	}
-	data := r.data
-	r.data = nil
-	runtime.SetFinalizer(r, nil)
-	return syscall.UnmapViewOfFile(uintptr(unsafe.Pointer(&data[0])))
-}
-
-// Len returns the length of the underlying memory-mapped file.
-func (r *Reader) Len() int {
-	return len(r.data)
-}
-
-// At returns the byte at index i.
-func (r *Reader) At(i int) byte {
-	return r.data[i]
-}
-
-func (r *Reader) Read(p []byte) (int, error) {
-	if r.c >= len(r.data) {
-		return 0, io.EOF
-	}
-	n := copy(p, r.data[r.c:])
-	r.c += n
-	return n, nil
-}
-
-func (r *Reader) ReadByte() (byte, error) {
-	if r.c >= len(r.data) {
-		return 0, io.EOF
-	}
-	v := r.data[r.c]
-	r.c++
-	return v, nil
-}
-
-// ReadAt implements the io.ReaderAt interface.
-func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
-	if r.data == nil {
-		return 0, errors.New("mmap: closed")
-	}
-	if off < 0 || int64(len(r.data)) < off {
-		return 0, fmt.Errorf("mmap: invalid ReadAt offset %d", off)
-	}
-	n := copy(p, r.data[off:])
-	if n < len(p) {
-		return n, io.EOF
-	}
-	return n, nil
-}
-
-func (r *Reader) Seek(offset int64, whence int) (int64, error) {
-	switch whence {
-	case io.SeekStart:
-		r.c = int(offset)
-	case io.SeekCurrent:
-		r.c += int(offset)
-	case io.SeekEnd:
-		r.c = len(r.data) - int(offset)
-	default:
-		return 0, fmt.Errorf("mmap: invalid whence")
-	}
-	if r.c < 0 {
-		return 0, fmt.Errorf("mmap: negative position")
-	}
-	return int64(r.c), nil
-}
-
-// Open memory-maps the named file for reading.
-func Open(filename string) (*Reader, error) {
+func openFile(filename string, fl int) (*File, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
 	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
@@ -106,7 +27,7 @@ func Open(filename string) (*Reader, error) {
 
 	size := fi.Size()
 	if size == 0 {
-		return &Reader{}, nil
+		return &File{flag: fl, fi: fi}, nil
 	}
 	if size < 0 {
 		return nil, fmt.Errorf("mmap: file %q has negative size", filename)
@@ -115,8 +36,13 @@ func Open(filename string) (*Reader, error) {
 		return nil, fmt.Errorf("mmap: file %q is too large", filename)
 	}
 
+	prot := uint32(syscall.PAGE_READONLY)
+	if fl&wFlag != 0 {
+		prot = syscall.PAGE_READWRITE
+	}
+
 	low, high := uint32(size), uint32(size>>32)
-	fmap, err := syscall.CreateFileMapping(syscall.Handle(f.Fd()), nil, syscall.PAGE_READONLY, high, low, nil)
+	fmap, err := syscall.CreateFileMapping(syscall.Handle(f.Fd()), nil, prot, high, low, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,15 +53,31 @@ func Open(filename string) (*Reader, error) {
 	}
 	data := (*[maxBytes]byte)(unsafe.Pointer(ptr))[:size]
 
-	r := &Reader{data: data}
-	runtime.SetFinalizer(r, (*Reader).Close)
-	return r, nil
+	fd := &File{
+		data: data,
+		fi:   fi,
+		flag: fl,
+	}
+	runtime.SetFinalizer(fd, (*File).Close)
+	return fd, nil
+
 }
 
-var (
-	_ io.Reader     = (*Reader)(nil)
-	_ io.ReaderAt   = (*Reader)(nil)
-	_ io.Seeker     = (*Reader)(nil)
-	_ io.Closer     = (*Reader)(nil)
-	_ io.ByteReader = (*Reader)(nil)
-)
+// Sync commits the current contents of the file to stable storage.
+func (f *File) Sync() error {
+	if !f.wflag() {
+		return errBadFD
+	}
+	panic("not implemented")
+}
+
+// Close closes the reader.
+func (f *File) Close() error {
+	if f.data == nil {
+		return nil
+	}
+	data := f.data
+	f.data = nil
+	runtime.SetFinalizer(f, nil)
+	return syscall.UnmapViewOfFile(uintptr(unsafe.Pointer(&data[0])))
+}
