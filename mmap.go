@@ -42,6 +42,7 @@ type File struct {
 	data []byte
 	c    int
 
+	fd   *os.File
 	flag Flag
 	fi   os.FileInfo
 }

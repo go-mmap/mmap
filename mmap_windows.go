@@ -18,7 +18,6 @@ func openFile(filename string, fl Flag) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
@@ -27,7 +26,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 
 	size := fi.Size()
 	if size == 0 {
-		return &File{flag: fl, fi: fi}, nil
+		return &File{fd: f, flag: fl, fi: fi}, nil
 	}
 	if size < 0 {
 		return nil, fmt.Errorf("mmap: file %q has negative size", filename)
@@ -57,6 +56,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 
 	fd := &File{
 		data: data,
+		fd:   f,
 		fi:   fi,
 		flag: fl,
 	}
@@ -70,7 +70,18 @@ func (f *File) Sync() error {
 	if !f.wflag() {
 		return errBadFD
 	}
-	panic("not implemented")
+
+	err := syscall.FlushViewOfFile(f.addr(), uintptr(len(f.data)))
+	if err != nil {
+		return fmt.Errorf("mmap: could not sync view: %w", err)
+	}
+
+	err = syscall.FlushFileBuffers(syscall.Handle(f.fd.Fd()))
+	if err != nil {
+		return fmt.Errorf("mmap: could not sync file buffers: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the reader.
@@ -78,8 +89,15 @@ func (f *File) Close() error {
 	if f.data == nil {
 		return nil
 	}
-	data := f.data
+	defer f.fd.Close()
+
+	addr := f.addr()
 	f.data = nil
 	runtime.SetFinalizer(f, nil)
-	return syscall.UnmapViewOfFile(uintptr(unsafe.Pointer(&data[0])))
+	return syscall.UnmapViewOfFile(addr)
+}
+
+func (f *File) addr() uintptr {
+	data := f.data
+	return uintptr(unsafe.Pointer(&data[0]))
 }

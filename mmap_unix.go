@@ -19,7 +19,6 @@ func openFile(filename string, fl Flag) (*File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mmap: could not open %q: %w", filename, err)
 	}
-	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
@@ -48,6 +47,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 	}
 	r := &File{
 		data: data,
+		fd:   f,
 		flag: fl,
 		fi:   fi,
 	}
@@ -68,6 +68,8 @@ func (f *File) Close() error {
 	if f.data == nil {
 		return nil
 	}
+	defer f.Close()
+
 	data := f.data
 	f.data = nil
 	runtime.SetFinalizer(f, nil)

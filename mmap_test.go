@@ -149,6 +149,16 @@ func TestOpen(t *testing.T) {
 
 			})
 
+			t.Run("sync", func(t *testing.T) {
+				err := r.Sync()
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if got, want := err, errBadFD; got.Error() != want.Error() {
+					t.Fatalf("invalid error:\ngot= %+v\nwant=%+v", got, want)
+				}
+			})
+
 			t.Run("write", func(t *testing.T) {
 				_, err = r.Write([]byte("hello"))
 				if err == nil {
@@ -157,7 +167,6 @@ func TestOpen(t *testing.T) {
 				if got, want := err, errBadFD; got.Error() != want.Error() {
 					t.Fatalf("invalid error:\ngot= %+v\nwant=%+v", got, want)
 				}
-
 			})
 
 			t.Run("write-at", func(t *testing.T) {
@@ -168,7 +177,6 @@ func TestOpen(t *testing.T) {
 				if got, want := err, errBadFD; got.Error() != want.Error() {
 					t.Fatalf("invalid error:\ngot= %+v\nwant=%+v", got, want)
 				}
-
 			})
 
 			t.Run("write-byte", func(t *testing.T) {
@@ -262,6 +270,11 @@ func TestWrite(t *testing.T) {
 			err = f.WriteByte('t')
 			if err != nil {
 				t.Fatalf("could not write-byte: %+v", err)
+			}
+
+			err = f.Sync()
+			if err != nil {
+				t.Fatalf("could not sync mmap file: %+v", err)
 			}
 
 			if got, want := display(fname), []byte("hello world!\ntye\n\n"); !bytes.Equal(got, want) {
