@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -27,12 +29,6 @@ func TestOpen(t *testing.T) {
 				return OpenFile(fname, Read)
 			},
 		},
-		//		{
-		//			name: "open-read-write",
-		//			open: func(fname string) (*File, error) {
-		//				return OpenFile(fname, os.O_RDWR)
-		//			},
-		//		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Open(filename)
@@ -189,6 +185,89 @@ func TestOpen(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not close mmap reader: %+v", err)
 			}
+		})
+	}
+}
+
+func TestWrite(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "mmap-")
+	if err != nil {
+		t.Fatalf("could not create temp dir: %+v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	display := func(fname string) []byte {
+		t.Helper()
+		raw, err := ioutil.ReadFile(fname)
+		if err != nil {
+			t.Fatalf("could not read file %q: %+v", fname, err)
+		}
+		return raw
+	}
+
+	for _, tc := range []struct {
+		name  string
+		flags Flag
+	}{
+		// {
+		// 	name:  "write-only",
+		// 	flags: Write,
+		// },
+		{
+			name:  "read-write",
+			flags: Read | Write,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fname := filepath.Join(tmp, tc.name+".txt")
+			err := ioutil.WriteFile(fname, []byte("hello world!\nbye.\n"), 0644)
+			if err != nil {
+				t.Fatalf("could not seed file: %+v", err)
+			}
+
+			f, err := OpenFile(fname, tc.flags)
+			if err != nil {
+				t.Fatalf("could not mmap file: %+v", err)
+			}
+			defer f.Close()
+
+			_, err = f.WriteAt([]byte("bye!\n"), 3)
+			if err != nil {
+				t.Fatalf("could not write-at: %+v", err)
+			}
+
+			if got, want := display(fname), []byte("helbye!\nrld!\nbye.\n"); !bytes.Equal(got, want) {
+				t.Fatalf("invalid content:\ngot= %q\nwant=%q\n", got, want)
+			}
+
+			_, err = f.Seek(0, io.SeekStart)
+			if err != nil {
+				t.Fatalf("could not seek to start: %+v", err)
+			}
+
+			_, err = f.Write([]byte("hello world!\nbye\n"))
+			if err != nil {
+				t.Fatalf("could not write: %+v", err)
+			}
+
+			if got, want := display(fname), []byte("hello world!\nbye\n\n"); !bytes.Equal(got, want) {
+				t.Fatalf("invalid content:\ngot= %q\nwant=%q\n", got, want)
+			}
+
+			_, err = f.Seek(5, io.SeekEnd)
+			if err != nil {
+				t.Fatalf("could not seek from end: %+v", err)
+			}
+
+			err = f.WriteByte('t')
+			if err != nil {
+				t.Fatalf("could not write-byte: %+v", err)
+			}
+
+			if got, want := display(fname), []byte("hello world!\ntye\n\n"); !bytes.Equal(got, want) {
+				t.Fatalf("invalid content:\ngot= %q\nwant=%q\n", got, want)
+			}
+
 		})
 	}
 }

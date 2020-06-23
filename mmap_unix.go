@@ -23,7 +23,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 
 	fi, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mmap: could not stat %q: %w", filename, err)
 	}
 
 	size := fi.Size()
@@ -44,7 +44,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 
 	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), prot, syscall.MAP_SHARED)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mmap: could not mmap %q: %w", filename, err)
 	}
 	r := &File{
 		data: data,
