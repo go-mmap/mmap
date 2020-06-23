@@ -14,28 +14,47 @@ import (
 
 var errBadFD = errors.New("bad file descriptor")
 
+// Flag specifies how a mmap file should be opened.
+type Flag int
+
 const (
-	rFlag = 0x1
-	wFlag = 0x2
+	Read  Flag = 0x1 // Read enables read-access to a mmap file.
+	Write Flag = 0x2 // Write enables write-access to a mmap file.
 )
+
+func (fl Flag) flag() int {
+	var flag int
+
+	switch fl {
+	case Read:
+		flag = os.O_RDONLY
+	case Write:
+		flag = os.O_WRONLY
+	case Read | Write:
+		flag = os.O_RDWR
+	}
+
+	return flag
+}
 
 // File reads/writes a memory-mapped file.
 type File struct {
 	data []byte
 	c    int
 
-	flag int
+	flag Flag
 	fi   os.FileInfo
 }
 
 // Open memory-maps the named file for reading.
 func Open(filename string) (*File, error) {
-	return openFile(filename, flagFrom(os.O_RDONLY))
+	return openFile(filename, Read)
 }
 
-// OpenFile memory-maps the named file for reading/writing.
-func OpenFile(filename string, flag int) (*File, error) {
-	return openFile(filename, flagFrom(flag))
+// OpenFile memory-maps the named file for reading/writing, depending on
+// the flag value.
+func OpenFile(filename string, flag Flag) (*File, error) {
+	return openFile(filename, flag)
 }
 
 // Len returns the length of the underlying memory-mapped file.
@@ -59,11 +78,11 @@ func (f *File) Stat() (os.FileInfo, error) {
 }
 
 func (f *File) rflag() bool {
-	return f.flag&rFlag != 0
+	return f.flag&Read != 0
 }
 
 func (f *File) wflag() bool {
-	return f.flag&wFlag != 0
+	return f.flag&Write != 0
 }
 
 // Read implements the io.Reader interface.
@@ -200,22 +219,6 @@ func (f *File) Seek(offset int64, whence int) (int64, error) {
 		return 0, fmt.Errorf("mmap: negative position")
 	}
 	return int64(f.c), nil
-}
-
-func flagFrom(fl int) int {
-	var flag int
-
-	fl &= 0xf
-
-	switch {
-	case fl == os.O_RDONLY:
-		flag = rFlag
-	case fl&os.O_RDWR != 0:
-		flag = rFlag | wFlag
-	case fl&os.O_WRONLY != 0:
-		flag = wFlag
-	}
-	return flag
 }
 
 var (

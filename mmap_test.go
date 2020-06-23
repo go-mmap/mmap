@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 )
 
@@ -25,7 +24,7 @@ func TestOpen(t *testing.T) {
 		{
 			name: "open-read-only",
 			open: func(fname string) (*File, error) {
-				return OpenFile(fname, os.O_RDONLY)
+				return OpenFile(fname, Read)
 			},
 		},
 		//		{

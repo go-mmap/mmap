@@ -14,11 +14,12 @@ import (
 	syscall "golang.org/x/sys/unix"
 )
 
-func openFile(filename string, fl int) (*File, error) {
-	f, err := os.Open(filename)
+func openFile(filename string, fl Flag) (*File, error) {
+	f, err := os.OpenFile(filename, fl.flag(), 0666)
 	if err != nil {
 		return nil, fmt.Errorf("mmap: could not open %q: %w", filename, err)
 	}
+	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
@@ -37,7 +38,7 @@ func openFile(filename string, fl int) (*File, error) {
 	}
 
 	prot := syscall.PROT_READ
-	if fl&wFlag != 0 {
+	if fl&Write != 0 {
 		prot |= syscall.PROT_WRITE
 	}
 

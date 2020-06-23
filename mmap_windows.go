@@ -13,8 +13,8 @@ import (
 	syscall "golang.org/x/sys/windows"
 )
 
-func openFile(filename string, fl int) (*File, error) {
-	f, err := os.Open(filename)
+func openFile(filename string, fl Flag) (*File, error) {
+	f, err := os.OpenFile(filename, fl.flag(), 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +37,10 @@ func openFile(filename string, fl int) (*File, error) {
 	}
 
 	prot := uint32(syscall.PAGE_READONLY)
-	if fl&wFlag != 0 {
+	view := uint32(syscall.FILE_MAP_READ)
+	if fl&Write != 0 {
 		prot = syscall.PAGE_READWRITE
+		view = syscall.FILE_MAP_WRITE
 	}
 
 	low, high := uint32(size), uint32(size>>32)
@@ -47,7 +49,7 @@ func openFile(filename string, fl int) (*File, error) {
 		return nil, err
 	}
 	defer syscall.CloseHandle(fmap)
-	ptr, err := syscall.MapViewOfFile(fmap, syscall.FILE_MAP_READ, 0, 0, uintptr(size))
+	ptr, err := syscall.MapViewOfFile(fmap, view, 0, 0, uintptr(size))
 	if err != nil {
 		return nil, err
 	}
