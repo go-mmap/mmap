@@ -27,7 +27,7 @@ func openFile(filename string, fl Flag) (*File, error) {
 
 	size := fi.Size()
 	if size == 0 {
-		return &File{flag: fl, fi: fi}, nil
+		return &File{fd: f, flag: fl, fi: fi}, nil
 	}
 	if size < 0 {
 		return nil, fmt.Errorf("mmap: file %q has negative size", filename)
