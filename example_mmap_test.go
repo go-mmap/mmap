@@ -6,7 +6,6 @@ package mmap_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -52,7 +51,7 @@ func ExampleOpenFile_read() {
 }
 
 func ExampleOpenFile_readwrite() {
-	f, err := ioutil.TempFile("", "mmap-")
+	f, err := os.CreateTemp("", "mmap-")
 	if err != nil {
 		log.Fatalf("could not create tmp file: %+v", err)
 	}
@@ -69,7 +68,7 @@ func ExampleOpenFile_readwrite() {
 		log.Fatalf("could not close file: %+v", err)
 	}
 
-	raw, err := ioutil.ReadFile(f.Name())
+	raw, err := os.ReadFile(f.Name())
 	if err != nil {
 		log.Fatalf("could not read back data: %+v", err)
 	}
@@ -87,7 +86,7 @@ func ExampleOpenFile_readwrite() {
 		log.Fatalf("could not write to mmap file: %+v", err)
 	}
 
-	raw, err = ioutil.ReadFile(f.Name())
+	raw, err = os.ReadFile(f.Name())
 	if err != nil {
 		log.Fatalf("could not read back data: %+v", err)
 	}

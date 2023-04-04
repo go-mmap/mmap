@@ -7,7 +7,6 @@ package mmap
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,9 +49,9 @@ func TestOpen(t *testing.T) {
 			if _, err := r.ReadAt(got, 0); err != nil && err != io.EOF {
 				t.Fatalf("ReadAt: %v", err)
 			}
-			want, err := ioutil.ReadFile(filename)
+			want, err := os.ReadFile(filename)
 			if err != nil {
-				t.Fatalf("ioutil.ReadFile: %v", err)
+				t.Fatalf("os.ReadFile: %v", err)
 			}
 			if len(got) != len(want) {
 				t.Fatalf("got %d bytes, want %d", len(got), len(want))
@@ -198,7 +197,7 @@ func TestOpen(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "mmap-")
+	tmp, err := os.MkdirTemp("", "mmap-")
 	if err != nil {
 		t.Fatalf("could not create temp dir: %+v", err)
 	}
@@ -206,7 +205,7 @@ func TestWrite(t *testing.T) {
 
 	display := func(fname string) []byte {
 		t.Helper()
-		raw, err := ioutil.ReadFile(fname)
+		raw, err := os.ReadFile(fname)
 		if err != nil {
 			t.Fatalf("could not read file %q: %+v", fname, err)
 		}
@@ -228,7 +227,7 @@ func TestWrite(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fname := filepath.Join(tmp, tc.name+".txt")
-			err := ioutil.WriteFile(fname, []byte("hello world!\nbye.\n"), 0644)
+			err := os.WriteFile(fname, []byte("hello world!\nbye.\n"), 0644)
 			if err != nil {
 				t.Fatalf("could not seed file: %+v", err)
 			}
